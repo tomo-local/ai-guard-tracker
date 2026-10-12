@@ -3,10 +3,6 @@
 package sidecar
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -40,30 +36,9 @@ type CustomCheckLog struct {
 	Override string `json:"override,omitempty"`
 }
 
-// AppendCheckLog appends entry as one JSON line to path, creating the
-// parent directory and file as needed. JSON Lines keeps this a single
-// atomic O_APPEND write regardless of how many `guard check` processes
-// run concurrently (e.g. parallel Bash tool calls) -- no read-modify-write
-// cycle, no locking needed, and the file stays streamable/grep-able.
+// AppendCheckLog appends entry as one JSON line to path. See
+// appendJSONLine for why JSON Lines (rather than a rewritten JSON array)
+// is safe under concurrent `guard check` processes.
 func AppendCheckLog(path string, entry CheckLogEntry) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("create log dir: %w", err)
-	}
-
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return fmt.Errorf("open log file %q: %w", path, err)
-	}
-	defer f.Close()
-
-	data, err := json.Marshal(entry)
-	if err != nil {
-		return fmt.Errorf("marshal log entry: %w", err)
-	}
-	data = append(data, '\n')
-
-	if _, err := f.Write(data); err != nil {
-		return fmt.Errorf("write log entry: %w", err)
-	}
-	return nil
+	return appendJSONLine(path, entry)
 }

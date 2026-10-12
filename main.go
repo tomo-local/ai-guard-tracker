@@ -36,6 +36,8 @@ func main() {
 		err = c.RunLint(args)
 	case "init":
 		err = c.RunInit(args)
+	case "record":
+		err = c.RunRecord(args)
 	case "", "-h", "--help", "help":
 		showHelp()
 		os.Exit(0)
@@ -64,10 +66,11 @@ func showHelp() {
 Usage: guard <command> [options]
 
 Commands:
-  init    Set up .guard/policies and .guard/logs for a new project
-  check   Evaluate a Bash command against .guard/policies (CLI arg or PreToolUse hook on stdin)
-  lint    Validate .guard/policies manifests
-  help    Show this help message
+  init     Set up .guard/policies and .guard/logs for a new project
+  check    Evaluate a Bash command against .guard/policies (CLI arg or PreToolUse hook on stdin)
+  record   Log a Bash command's result (PostToolUse hook on stdin only)
+  lint     Validate .guard/policies manifests
+  help     Show this help message
   -h, --help   Show this help message
 
 Run 'guard <command> -h' for details and options of each command.

@@ -1,5 +1,5 @@
 // Package hookproto defines the JSON shapes Claude Code sends to and
-// expects from a PreToolUse hook command.
+// expects from PreToolUse/PostToolUse hook commands.
 package hookproto
 
 import "encoding/json"
@@ -16,6 +16,31 @@ type PreToolUseInput struct {
 // BashToolInput is the shape of ToolInput when ToolName == "Bash".
 type BashToolInput struct {
 	Command string `json:"command"`
+}
+
+// PostToolUseInput is the payload Claude Code pipes to a PostToolUse
+// hook's stdin, i.e. PreToolUseInput plus the tool's result. ToolInput
+// and ToolResponse are kept raw because their shape depends on ToolName.
+// DurationMs is optional (recent Claude Code versions only).
+type PostToolUseInput struct {
+	SessionID     string          `json:"session_id"`
+	HookEventName string          `json:"hook_event_name"`
+	ToolName      string          `json:"tool_name"`
+	ToolInput     json.RawMessage `json:"tool_input"`
+	ToolResponse  json.RawMessage `json:"tool_response"`
+	ToolUseID     string          `json:"tool_use_id,omitempty"`
+	DurationMs    *int            `json:"duration_ms,omitempty"`
+}
+
+// BashToolResponse is the shape of ToolResponse when ToolName == "Bash".
+// As documented at the time of writing, Claude Code does not expose an
+// exit code to hooks -- only stdout/stderr/interrupted/isImage. Don't
+// assume an exit code field exists; infer at most "interrupted" here.
+type BashToolResponse struct {
+	Stdout      string `json:"stdout,omitempty"`
+	Stderr      string `json:"stderr,omitempty"`
+	Interrupted bool   `json:"interrupted,omitempty"`
+	IsImage     bool   `json:"isImage,omitempty"`
 }
 
 // PermissionDecision values accepted by Claude Code's hookSpecificOutput.
