@@ -28,6 +28,12 @@ go.work.sum
 # env file
 .env
 
+# guard check/record audit logs (local, not shared)
+.guard/logs/
+
+# local build output
+bin/**
+
 # Editor/IDE
 # .idea/
 # .vscode/

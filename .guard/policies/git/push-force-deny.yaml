@@ -1,0 +1,18 @@
+apiVersion: ai-guard/v1
+kind: CommandGatePolicy
+metadata:
+  name: git-push-force-deny
+spec:
+  target:
+    module: permission
+    tool: git
+  action: DENY
+  rules:
+    - to:
+        mode: destructive
+        functions: [push]
+        args:
+          anyOf: ["-f", "--force"]
+      message:
+        reason: "{cmd} force-pushes and can overwrite remote history."
+        next: "Suggest a non-destructive alternative, or ask the user to run it themselves."

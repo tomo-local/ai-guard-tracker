@@ -1,0 +1,17 @@
+apiVersion: ai-guard/v1
+kind: CommandGatePolicy
+metadata:
+  name: curl-confirm
+spec:
+  target:
+    module: permission
+    tool: curl
+  action: ALLOW
+  rules:
+    - to:
+        mode: network
+      options:
+        confirm: true
+      message:
+        reason: "{cmd} accesses an external network resource."
+        next: "Confirm the URL is safe with the user before proceeding."

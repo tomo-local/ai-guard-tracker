@@ -1,0 +1,16 @@
+apiVersion: ai-guard/v1
+kind: CommandGatePolicy
+metadata:
+  name: git-destructive-deny
+spec:
+  target:
+    module: permission
+    tool: git
+  action: DENY
+  rules:
+    - to:
+        mode: destructive
+        functions: [reset, clean, rebase]
+      message:
+        reason: "{cmd} is a destructive operation and is denied."
+        next: "Suggest an alternative approach to the user."

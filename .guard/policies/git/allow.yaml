@@ -1,0 +1,21 @@
+apiVersion: ai-guard/v1
+kind: CommandGatePolicy
+metadata:
+  name: git-allow
+spec:
+  target:
+    module: permission
+    tool: git
+  action: ALLOW
+  rules:
+    - to:
+        mode: read
+        functions: [log, status, diff, show, branch, fetch]
+    - to:
+        mode: write
+        functions: [add, commit, push, pull, merge]
+      options:
+        confirm: true
+      message:
+        reason: "{cmd} is a write operation."
+        next: "Confirm with the user before proceeding."

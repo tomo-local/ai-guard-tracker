@@ -1,0 +1,15 @@
+apiVersion: ai-guard/v1
+kind: CommandGatePolicy
+metadata:
+  name: rm-deny
+spec:
+  target:
+    module: permission
+    tool: rm
+  action: DENY
+  rules:
+    - to:
+        mode: destructive
+      message:
+        reason: "{cmd} is denied."
+        next: "Ask the user whether this deletion is really needed, and have them run it themselves."
