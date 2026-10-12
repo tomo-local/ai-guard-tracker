@@ -3,19 +3,22 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"io/fs"
 )
 
-// Cmd holds the dependencies every subcommand needs (standard streams),
-// mirroring the dependency-injected struct+method pattern used across
-// this repo's other made/ CLIs.
+// Cmd holds the dependencies every subcommand needs (standard streams,
+// plus the embedded starter policies guard init seeds a fresh project
+// with), mirroring the dependency-injected struct+method pattern used
+// across this repo's other made/ CLIs.
 type Cmd struct {
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	Stdin           io.Reader
+	Stdout          io.Writer
+	Stderr          io.Writer
+	StarterPolicies fs.FS
 }
 
-func New(stdin io.Reader, stdout, stderr io.Writer) *Cmd {
-	return &Cmd{Stdin: stdin, Stdout: stdout, Stderr: stderr}
+func New(stdin io.Reader, stdout, stderr io.Writer, starterPolicies fs.FS) *Cmd {
+	return &Cmd{Stdin: stdin, Stdout: stdout, Stderr: stderr, StarterPolicies: starterPolicies}
 }
 
 // ExitError carries a specific process exit code for a legitimate,

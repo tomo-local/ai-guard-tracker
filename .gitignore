@@ -34,6 +34,9 @@ go.work.sum
 # local build output
 bin/**
 
+# scratch notes / planning docs, not meant to be committed
+tmp/
+
 # Editor/IDE
 # .idea/
 # .vscode/

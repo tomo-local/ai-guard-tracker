@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"errors"
 	"flag"
 	"fmt"
@@ -8,6 +9,13 @@ import (
 
 	"ai-guard-tracker/cmd"
 )
+
+// starterPolicies ships this repo's own proven sample manifests inside the
+// binary, so `guard init` can seed a fresh project even when guard is
+// installed standalone elsewhere (not run from inside this repo).
+//
+//go:embed .guard/policies
+var starterPolicies embed.FS
 
 func main() {
 	args := os.Args[1:]
@@ -18,7 +26,7 @@ func main() {
 		args = args[1:]
 	}
 
-	c := cmd.New(os.Stdin, os.Stdout, os.Stderr)
+	c := cmd.New(os.Stdin, os.Stdout, os.Stderr, starterPolicies)
 
 	var err error
 	switch command {
@@ -26,6 +34,8 @@ func main() {
 		err = c.RunCheck(args)
 	case "lint":
 		err = c.RunLint(args)
+	case "init":
+		err = c.RunInit(args)
 	case "", "-h", "--help", "help":
 		showHelp()
 		os.Exit(0)
@@ -54,6 +64,7 @@ func showHelp() {
 Usage: guard <command> [options]
 
 Commands:
+  init    Set up .guard/policies and .guard/logs for a new project
   check   Evaluate a Bash command against .guard/policies (CLI arg or PreToolUse hook on stdin)
   lint    Validate .guard/policies manifests
   help    Show this help message
@@ -62,6 +73,7 @@ Commands:
 Run 'guard <command> -h' for details and options of each command.
 
 Examples:
+  guard init
   guard check "git push --force"
   echo '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"}}' | guard check
   guard lint
