@@ -197,6 +197,10 @@ Policies are Kubernetes-style manifests modeled on
 one tool, one action, one file. Policies for the same tool live together
 under `.guard/policies/<tool>/`.
 
+> This section is a narrative introduction. For the full field reference
+> (every field, type, validation rule, and `guard lint` check), see
+> [**docs/policy-schema.md**](docs/policy-schema.md).
+
 ```yaml
 # .guard/policies/git/allow.yaml
 apiVersion: ai-guard/v1

@@ -174,6 +174,10 @@ GUARD_POLICIES_DIR=./some/other/dir guard lint
 を参考にした Kubernetes 風マニフェスト。1ツール・1アクション・1ファイルとし、同じツールの
 ポリシーは `.guard/policies/<tool>/` ディレクトリにまとめる。
 
+> このセクションは概要的な説明。すべてのフィールド・型・検証ルール・
+> `guard lint` のチェック内容を含む完全な仕様は
+> [**docs/ja/policy-schema.md**](policy-schema.md) を参照。
+
 ```yaml
 # .guard/policies/git/allow.yaml
 apiVersion: ai-guard/v1
