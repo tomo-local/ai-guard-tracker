@@ -17,7 +17,7 @@ func validPolicy() Policy {
 			Rules: []Rule{
 				{
 					To:      To{Mode: ModeWrite, Functions: []string{"commit", "push"}},
-					Options: &Options{Confirm: true},
+					Options: &Options{Confirm: &Confirm{Enabled: true}},
 					Message: &Message{
 						Reason: "git への書き込み操作です。",
 						Next:   "実行前にユーザーに確認してください。",
@@ -147,7 +147,7 @@ func TestLint_DuplicateCatchAllWarning(t *testing.T) {
 func TestLint_ConfirmOnDenyIsAnError(t *testing.T) {
 	p := validPolicy()
 	p.Spec.Action = ActionDeny
-	p.Spec.Rules[0].Options = &Options{Confirm: true}
+	p.Spec.Rules[0].Options = &Options{Confirm: &Confirm{Enabled: true}}
 
 	issues := Lint([]Policy{p})
 	if !hasErrorContaining(issues, "options.confirm") {

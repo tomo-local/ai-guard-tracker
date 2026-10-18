@@ -5,9 +5,9 @@ package policy
 // Only ALLOW/DENY are valid in the YAML schema (spec.action, when.action) --
 // kept binary and symmetric with Istio's own ALLOW/DENY core. CONFIRM is
 // derived at evaluation time, never written directly: a rule reaching
-// ALLOW with its `options.confirm: true` (or a matching `when.confirm:
-// true`) gets gated behind a human confirmation instead of proceeding
-// silently. See Options.Confirm / When.Confirm.
+// ALLOW with its `options.confirm.enabled: true` (or a matching
+// `when.confirm: true`) gets gated behind a human confirmation instead of
+// proceeding silently. See Options.Confirm / When.Confirm.
 type Action string
 
 const (
@@ -86,6 +86,11 @@ type Target struct {
 type Rule struct {
 	To      To       `yaml:"to"`
 	Options *Options `yaml:"options,omitempty"`
+
+	// Message is this rule's general-purpose reason/next (e.g. why a DENY
+	// rule denies). Options.Confirm.Message, when set, takes precedence
+	// over this field for a confirmation gate's wording; this field is
+	// the fallback otherwise.
 	Message *Message `yaml:"message,omitempty"`
 }
 
@@ -122,10 +127,21 @@ type Message struct {
 type Options struct {
 	// Confirm gates this rule's ALLOW behind a human confirmation instead
 	// of proceeding silently. Only meaningful when the resource's
-	// spec.action is ALLOW -- lint rejects it on a DENY rule, since DENY is
-	// meant to be unconditional, not negotiable via confirmation.
-	Confirm     bool         `yaml:"confirm,omitempty"`
+	// spec.action is ALLOW -- lint rejects Confirm.Enabled on a DENY rule,
+	// since DENY is meant to be unconditional, not negotiable via
+	// confirmation.
+	Confirm     *Confirm     `yaml:"confirm,omitempty"`
 	CustomCheck *CustomCheck `yaml:"customCheck,omitempty"`
+}
+
+// Confirm gates a rule's ALLOW behind a human confirmation step.
+type Confirm struct {
+	Enabled bool `yaml:"enabled"`
+
+	// Message overrides Rule.Message with wording specific to this
+	// confirmation gate. When unset, the rule's own Message is used
+	// instead.
+	Message *Message `yaml:"message,omitempty"`
 }
 
 // CustomCheck delegates part of the decision to an external script or

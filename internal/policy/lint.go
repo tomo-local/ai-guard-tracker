@@ -56,8 +56,8 @@ func lintConfirmOnDeny(c *IssueCollector, ruleIdx int, specAction Action, r Rule
 		return
 	}
 
-	if r.Options.Confirm && specAction == ActionDeny {
-		c.Errorf("spec.rules[%d].options.confirm: must not be set when spec.action is DENY (DENY is unconditional)", ruleIdx)
+	if r.Options.Confirm != nil && r.Options.Confirm.Enabled && specAction == ActionDeny {
+		c.Errorf("spec.rules[%d].options.confirm.enabled: must not be set when spec.action is DENY (DENY is unconditional)", ruleIdx)
 	}
 
 	if r.Options.CustomCheck == nil {

@@ -1,0 +1,114 @@
+---
+name: guard-rule-helper
+description: Add or edit ai-guard-tracker CommandGatePolicy manifests under .guard/policies/ from a natural-language description of what to allow/deny/confirm, then validate with guard lint. Use when the user describes a command they want guard to allow, deny, or confirm (e.g. "deny rm -rf", "git push -f should need confirmation", "allow curl but ask first").
+---
+
+# guard-rule-helper
+
+Turn a natural-language request ("deny `rm -rf`", "git push should ask for
+confirmation", "force-push should be denied but plain push is fine") into a
+valid `.guard/policies/` manifest, then validate it.
+
+## Before writing anything
+
+1. Read every existing file under `.guard/policies/<tool>/` for the tool the
+   user is talking about (e.g. `.guard/policies/git/*.yaml`). Don't guess the
+   schema from memory -- the files on disk are the ground truth for this
+   project's current conventions, and you need them to decide whether to
+   edit an existing resource or add a new one.
+2. If `.guard/policies/` doesn't exist yet or is empty, tell the user to run
+   `guard init` first (or offer to run it) instead of inventing a layout.
+
+## Schema (binary action + modifiers)
+
+```yaml
+apiVersion: ai-guard/v1
+kind: CommandGatePolicy
+metadata:
+  name: <kebab-case, usually "<tool>-<action>" or "<tool>-<qualifier>-<action>">
+spec:
+  target:
+    module: permission   # fixed value, always "permission"
+    tool: <command name, e.g. "git", "rm", "curl">
+  action: ALLOW | DENY    # exactly one, applies to every rule in this file
+  rules:
+    - to:
+        mode: read | write | destructive | network   # fixed vocabulary, categorization only
+        functions: [sub, commands]    # omit entirely for flat commands (rm, curl, ...) -> catch-all
+        args:
+          anyOf: ["-f", "--force"]    # optional: literal argv token match, no regex/globs
+      options:
+        confirm:                     # optional, ALLOW only -- turns this rule's ALLOW into a
+          enabled: true              # human-confirmation gate. NEVER combine with action: DENY.
+          message:                  # optional: wording specific to this confirmation gate;
+            reason: "{cmd} is ..."  # overrides the rule's own message below when both are set
+            next: "Ask the user to ..."
+        customCheck:                 # optional, delegates to a script (see below)
+          path: "./scripts/x.sh"     # exactly one of path/command
+          command: "..."
+          args: ["..."]
+          timeoutSeconds: 10
+          when:
+            - key: exit
+              value: 0
+              action: ALLOW | DENY
+              confirm: true          # same confirm-modifier rule as above
+      message:
+        reason: "{cmd} is ..."       # English -- sent to the AI as permissionDecisionReason
+        next: "Ask the user to ..."  # English -- what the AI should do next
+```
+
+Key rules to follow:
+
+- **`action` is ALLOW or DENY only.** There is no `CONFIRM` value in the YAML.
+  To make something require confirmation, set `action: ALLOW` plus
+  `options.confirm.enabled: true` on the matching rule.
+- **Never write `options.confirm.enabled: true` together with `action:
+  DENY`** on the same rule/resource -- `guard lint` rejects this as a
+  contradiction (DENY is meant to be unconditional). If the user wants
+  "deny unless a check passes", model it as `action: DENY` with
+  `options.customCheck.when[].action: ALLOW` instead.
+- **Message precedence: `options.confirm.message` > the rule's own
+  top-level `message`.** Use the rule's top-level `message` for the
+  general case (e.g. why a DENY rule denies), and add
+  `options.confirm.message` only when the confirmation gate specifically
+  needs different wording. If both are absent, no message is shown.
+- **Action precedence when a rule has both `options.confirm` and
+  `options.customCheck`: `customCheck` > `confirm` > the plain base
+  action.** A matched `when` entry always wins -- even if it resolves to
+  plain ALLOW and overrides the rule's own `confirm.enabled: true`.
+  `confirm` only applies when `customCheck` is absent, didn't run, or had
+  no matching `when` entry.
+- **One resource = one tool + one action.** If a resource for that
+  tool+action already exists, add a new entry to its `rules:` list instead
+  of creating a duplicate file. Only create a new file when the user needs a
+  *different* action for the same tool (e.g. `git/allow.yaml` for
+  ALLOW-with-confirm, `git/destructive-deny.yaml` for DENY).
+- **Distinguishing by flags** (e.g. "`git push` is fine, `git push -f` is
+  not") is two separate resources for the same tool, not one resource with
+  conditional logic: a normal ALLOW(+confirm) rule with no `args`, plus a
+  separate DENY resource whose rule has `args.anyOf` naming the dangerous
+  flags. The existing strictest-wins evaluation (DENY > CONFIRM > ALLOW)
+  resolves it automatically when both match. See
+  `.guard/policies/git/push-force-deny.yaml` for a worked example.
+- **`message.reason`/`message.next` are English**, not Japanese -- they are
+  sent verbatim to Claude as `permissionDecisionReason`, not shown as
+  end-user UI text. Use the `{cmd}` placeholder (the only one supported) to
+  reference the exact matched command, e.g. `"{cmd} is a destructive
+  operation and is denied."`
+- Directory convention: `.guard/policies/<tool>/<short-action-or-qualifier>.yaml`
+  (e.g. `git/allow.yaml`, `rm/deny.yaml`, `git/push-force-deny.yaml`).
+
+## After writing/editing
+
+1. Run `guard lint` (or `go run . lint` from a source checkout without a
+   built binary) and fix every error it reports before telling the user
+   you're done. Warnings (e.g. "duplicate match condition... strictest
+   action wins automatically") are often expected for the flag-distinction
+   pattern above -- read the warning text before treating it as a problem.
+2. Show the user a concise diff (or just the new/changed file content) of
+   what changed, and a one-line explanation of the resulting behavior (e.g.
+   "`git push` -> CONFIRM, `git push -f`/`--force` -> DENY").
+3. If you added or changed a rule for a command the user is likely to run
+   again soon, you can sanity-check it with `guard check "<example command>"`
+   and mention the result.

@@ -15,7 +15,8 @@ spec:
         mode: write
         functions: [add, commit, push, pull, merge]
       options:
-        confirm: true
-      message:
-        reason: "{cmd} is a write operation."
-        next: "Confirm with the user before proceeding."
+        confirm:
+          enabled: true
+          message:
+            reason: "{cmd} is a write operation."
+            next: "Confirm with the user before proceeding."

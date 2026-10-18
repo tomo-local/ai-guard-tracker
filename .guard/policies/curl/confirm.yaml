@@ -11,7 +11,8 @@ spec:
     - to:
         mode: network
       options:
-        confirm: true
-      message:
-        reason: "{cmd} accesses an external network resource."
-        next: "Confirm the URL is safe with the user before proceeding."
+        confirm:
+          enabled: true
+          message:
+            reason: "{cmd} accesses an external network resource."
+            next: "Confirm the URL is safe with the user before proceeding."

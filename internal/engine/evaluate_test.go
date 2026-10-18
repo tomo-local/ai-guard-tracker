@@ -10,7 +10,7 @@ import (
 func gitPolicy(action policy.Action, mode policy.Mode, functions []string, confirm bool, sourcePath string) policy.Policy {
 	var opts *policy.Options
 	if confirm {
-		opts = &policy.Options{Confirm: true}
+		opts = &policy.Options{Confirm: &policy.Confirm{Enabled: true}}
 	}
 	return policy.Policy{
 		APIVersion: policy.APIVersion,
@@ -99,7 +99,7 @@ func TestEvaluateCommand_MessageCmdPlaceholder(t *testing.T) {
 				Rules: []policy.Rule{
 					{
 						To:      policy.To{Mode: policy.ModeWrite, Functions: []string{"add"}},
-						Options: &policy.Options{Confirm: true},
+						Options: &policy.Options{Confirm: &policy.Confirm{Enabled: true}},
 						Message: &policy.Message{
 							Reason: "{cmd} is a write operation.",
 							Next:   "Confirm {cmd} with the user.",
@@ -120,6 +120,48 @@ func TestEvaluateCommand_MessageCmdPlaceholder(t *testing.T) {
 	}
 	if got.Next != wantNext {
 		t.Fatalf("Next = %q, want %q", got.Next, wantNext)
+	}
+}
+
+func TestEvaluateCommand_ConfirmMessageOverridesRuleMessage(t *testing.T) {
+	policies := []policy.Policy{
+		{
+			APIVersion: policy.APIVersion,
+			Kind:       policy.Kind,
+			SourcePath: "curl/confirm.yaml",
+			Spec: policy.Spec{
+				Target: policy.Target{Module: policy.ModulePermission, Tool: "curl"},
+				Action: policy.ActionAllow,
+				Rules: []policy.Rule{
+					{
+						To: policy.To{Mode: policy.ModeNetwork},
+						Options: &policy.Options{
+							Confirm: &policy.Confirm{
+								Enabled: true,
+								Message: &policy.Message{
+									Reason: "confirm reason",
+									Next:   "confirm next",
+								},
+							},
+						},
+						Message: &policy.Message{
+							Reason: "rule reason",
+							Next:   "rule next",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	e := NewEvaluator(policies)
+	got := e.EvaluateCommand(shellcmd.SimpleCommand{Tool: "curl", Args: []string{"http://x"}})
+
+	if got.Reason != "confirm reason" {
+		t.Fatalf("Reason = %q, want %q (options.confirm.message should win over rule.message)", got.Reason, "confirm reason")
+	}
+	if got.Next != "confirm next" {
+		t.Fatalf("Next = %q, want %q (options.confirm.message should win over rule.message)", got.Next, "confirm next")
 	}
 }
 
@@ -282,6 +324,45 @@ func TestEvaluateCommand_CustomCheckWhenConfirmOverridesToConfirm(t *testing.T) 
 	}
 }
 
+func TestEvaluateCommand_CustomCheckOverrideBeatsConfirm(t *testing.T) {
+	// Precedence when a rule sets both options.confirm and
+	// options.customCheck: customCheck > confirm > the plain base action.
+	// Here the customCheck's `when` matches and resolves to plain ALLOW
+	// (no confirm on the when entry), which must win over the rule's own
+	// confirm.enabled:true.
+	policies := []policy.Policy{
+		{
+			APIVersion: policy.APIVersion,
+			Kind:       policy.Kind,
+			SourcePath: "git/push-custom-check.yaml",
+			Spec: policy.Spec{
+				Target: policy.Target{Module: policy.ModulePermission, Tool: "git"},
+				Action: policy.ActionAllow,
+				Rules: []policy.Rule{
+					{
+						To: policy.To{Mode: policy.ModeWrite, Functions: []string{"push"}},
+						Options: &policy.Options{
+							Confirm: &policy.Confirm{Enabled: true},
+							CustomCheck: &policy.CustomCheck{
+								Command: "exit 0",
+								When: []policy.When{
+									{Key: "exit", Value: 0, Action: policy.ActionAllow},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	e := NewEvaluator(policies)
+	got := e.EvaluateCommand(shellcmd.SimpleCommand{Tool: "git", Args: []string{"push"}})
+	if got.Action != policy.ActionAllow {
+		t.Fatalf("expected customCheck's matched ALLOW to override the rule's confirm.enabled:true, got %s", got.Action)
+	}
+}
+
 func TestEvaluateCommand_CustomCheckNoWhenMatchKeepsEffectiveBaseAction(t *testing.T) {
 	policies := []policy.Policy{
 		{
@@ -295,7 +376,7 @@ func TestEvaluateCommand_CustomCheckNoWhenMatchKeepsEffectiveBaseAction(t *testi
 					{
 						To: policy.To{Mode: policy.ModeWrite, Functions: []string{"push"}},
 						Options: &policy.Options{
-							Confirm: true,
+							Confirm: &policy.Confirm{Enabled: true},
 							CustomCheck: &policy.CustomCheck{
 								Command: "exit 9",
 								When: []policy.When{
