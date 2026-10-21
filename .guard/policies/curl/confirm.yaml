@@ -9,7 +9,7 @@ spec:
   action: ALLOW
   rules:
     - to:
-        mode: network
+        label: network
       options:
         confirm:
           enabled: true

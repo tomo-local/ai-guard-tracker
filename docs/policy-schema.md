@@ -43,7 +43,7 @@ files (see [Multi-file example](#multi-file-example)).
 
 ```yaml
 - to:
-    mode: read | write | destructive | network   # required
+    label: <string>                                # optional, free text
     functions: [sub, commands]                    # optional
     args:
       anyOf: ["-f", "--force"]                     # optional
@@ -72,7 +72,7 @@ files (see [Multi-file example](#multi-file-example)).
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `to.mode` | string (enum) | yes | One of `read`, `write`, `destructive`, `network`. Categorization only -- doesn't affect which rule wins, just reporting/clarity. |
+| `to.label` | string | no | Free-text, purely descriptive (e.g. `read`, `write`, `destructive`, `network`, or anything else). **Plays no part in matching** -- matching is driven entirely by `functions`/`args`. Carried into the check log (`CommandLog.label`) for readability. |
 | `to.functions` | list of strings | no | Subcommand names this rule applies to (e.g. `[add, commit, push]`). **Omit entirely** to make the rule a catch-all for every invocation of the tool (used for flat commands like `rm`/`curl` that have no subcommand concept). |
 | `to.args` | object | no | See below. |
 | `to.args.anyOf` | list of strings | yes, if `args` is set | At least 1 non-empty string. The rule only matches commands whose argv contains **at least one** of these tokens, literally (no regex/globs, no flag-value parsing). |
@@ -203,14 +203,13 @@ checks:
 | Error | `spec.target.tool` empty |
 | Error | `spec.action` not one of `ALLOW`/`DENY` |
 | Error | `spec.rules` empty |
-| Error | `rules[].to.mode` not one of `read`/`write`/`destructive`/`network` |
 | Error | `rules[].to.args.anyOf` set but empty, or containing an empty string |
 | Error | `rules[].options.customCheck` has neither `path` nor `command`, or has both |
 | Error | `rules[].options.customCheck.when[].key` != `"exit"` |
 | Error | `rules[].options.confirm.enabled: true` together with `spec.action: DENY` |
 | Error | `rules[].options.customCheck.when[].confirm: true` together with that entry's `action: DENY` |
 | Warning | A second catch-all (no `functions`) rule in the same resource -- the first one already makes it unreachable |
-| Warning | Two or more resources declare the exact same `{tool, mode, functions, args}` match condition -- not an error (strictest-wins resolves it deterministically), but almost always unintentional |
+| Warning | Two or more resources declare the exact same `{tool, functions, args}` match condition -- not an error (strictest-wins resolves it deterministically), but almost always unintentional. `to.label` is deliberately excluded from this check, since it plays no part in matching -- two rules differing only in `label` are still flagged. |
 
 ## Examples
 
@@ -229,7 +228,7 @@ spec:
   action: ALLOW
   rules:
     - to:
-        mode: network
+        label: network
       options:
         confirm:
           enabled: true
@@ -253,7 +252,7 @@ spec:
   action: DENY
   rules:
     - to:
-        mode: destructive
+        label: destructive
         functions: [push]
         args:
           anyOf: ["-f", "--force"]
@@ -281,7 +280,7 @@ spec:
   action: DENY             # safe default: deny unless the script proves otherwise
   rules:
     - to:
-        mode: write
+        label: write
         functions: [push]
       options:
         customCheck:
@@ -308,8 +307,8 @@ One tool, two actions, two files:
 spec:
   action: ALLOW
   rules:
-    - to: { mode: read, functions: [log, status, diff] }
-    - to: { mode: write, functions: [add, commit, push] }
+    - to: { label: read, functions: [log, status, diff] }
+    - to: { label: write, functions: [add, commit, push] }
       options:
         confirm: { enabled: true }
 ```
@@ -319,7 +318,7 @@ spec:
 spec:
   action: DENY
   rules:
-    - to: { mode: destructive, functions: [reset, clean, rebase] }
+    - to: { label: destructive, functions: [reset, clean, rebase] }
       message:
         reason: "{cmd} is a destructive operation and is denied."
         next: "Suggest an alternative approach to the user."

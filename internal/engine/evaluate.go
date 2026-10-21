@@ -18,6 +18,7 @@ type Decision struct {
 	Action            policy.Action
 	Reason            string
 	Next              string
+	Label             string   // deduplicated To.Label values from the matched rule(s), joined with ", "; purely descriptive, see policy.To.Label
 	MatchedPolicies   []string // source paths that contributed to Action
 	CustomCheck       *CustomCheckResult
 	UsedFallbackParse bool
@@ -113,7 +114,7 @@ func (e *Evaluator) EvaluateCommand(cmd shellcmd.SimpleCommand) Decision {
 		}
 	}
 
-	var reasons, nexts, paths []string
+	var reasons, nexts, labels, paths []string
 	var customCheck *policy.CustomCheck
 	anyConfirm := false
 	for _, m := range matches {
@@ -125,6 +126,7 @@ func (e *Evaluator) EvaluateCommand(cmd shellcmd.SimpleCommand) Decision {
 			reasons = appendUnique(reasons, renderMessageTemplate(msg.Reason, cmd))
 			nexts = appendUnique(nexts, renderMessageTemplate(msg.Next, cmd))
 		}
+		labels = appendUnique(labels, m.rule.To.Label)
 		if m.rule.Options != nil {
 			if m.rule.Options.Confirm != nil && m.rule.Options.Confirm.Enabled {
 				anyConfirm = true
@@ -147,6 +149,7 @@ func (e *Evaluator) EvaluateCommand(cmd shellcmd.SimpleCommand) Decision {
 		Action:          effectiveAction,
 		Reason:          strings.Join(reasons, "\n"),
 		Next:            strings.Join(nexts, "\n"),
+		Label:           strings.Join(labels, ", "),
 		MatchedPolicies: paths,
 		Tool:            cmd.Tool,
 	}
@@ -222,7 +225,7 @@ func aggregateStrictest(decisions []Decision) Decision {
 		}
 	}
 
-	var reasons, nexts, paths []string
+	var reasons, nexts, labels, paths []string
 	allDefault := true
 	for _, d := range decisions {
 		if d.Action != strictest {
@@ -234,6 +237,7 @@ func aggregateStrictest(decisions []Decision) Decision {
 		if d.Next != "" {
 			nexts = appendUnique(nexts, d.Next)
 		}
+		labels = appendUnique(labels, d.Label)
 		paths = append(paths, d.MatchedPolicies...)
 		if !d.Default {
 			allDefault = false
@@ -244,6 +248,7 @@ func aggregateStrictest(decisions []Decision) Decision {
 		Action:          strictest,
 		Reason:          strings.Join(reasons, "\n"),
 		Next:            strings.Join(nexts, "\n"),
+		Label:           strings.Join(labels, ", "),
 		MatchedPolicies: uniqueStrings(paths),
 		Default:         allDefault,
 	}

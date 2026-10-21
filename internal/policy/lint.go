@@ -75,10 +75,13 @@ func lintConfirmOnDeny(c *IssueCollector, ruleIdx int, specAction Action, r Rule
 // resolves it deterministically -- but it is almost always unintentional,
 // so it spans multiple source paths and can't go through a single-file
 // IssueCollector.
+//
+// The key deliberately excludes To.Label: Label plays no part in matching
+// (see To.Label's doc comment), so two rules differing only in Label are
+// still a genuine duplicate match condition.
 func lintCrossPolicy(policies []Policy) []Issue {
 	type key struct {
 		tool      string
-		mode      Mode
 		functions string
 		args      string
 	}
@@ -95,7 +98,6 @@ func lintCrossPolicy(policies []Policy) []Issue {
 			}
 			k := key{
 				tool:      p.Spec.Target.Tool,
-				mode:      r.To.Mode,
 				functions: strings.Join(fns, ","),
 				args:      strings.Join(argsAnyOf, ","),
 			}
@@ -113,7 +115,7 @@ func lintCrossPolicy(policies []Policy) []Issue {
 		issues = append(issues, Issue{
 			Severity: SeverityWarning,
 			Path:     strings.Join(unique, ", "),
-			Message:  fmt.Sprintf("duplicate match condition tool=%q mode=%q functions=[%s] args=[%s] declared in multiple policies; strictest action wins automatically", k.tool, k.mode, k.functions, k.args),
+			Message:  fmt.Sprintf("duplicate match condition tool=%q functions=[%s] args=[%s] declared in multiple policies; strictest action wins automatically", k.tool, k.functions, k.args),
 		})
 	}
 	return issues

@@ -7,7 +7,7 @@ import (
 	"ai-guard-tracker/internal/shellcmd"
 )
 
-func gitPolicy(action policy.Action, mode policy.Mode, functions []string, confirm bool, sourcePath string) policy.Policy {
+func gitPolicy(action policy.Action, label string, functions []string, confirm bool, sourcePath string) policy.Policy {
 	var opts *policy.Options
 	if confirm {
 		opts = &policy.Options{Confirm: &policy.Confirm{Enabled: true}}
@@ -20,7 +20,7 @@ func gitPolicy(action policy.Action, mode policy.Mode, functions []string, confi
 			Target: policy.Target{Module: policy.ModulePermission, Tool: "git"},
 			Action: action,
 			Rules: []policy.Rule{
-				{To: policy.To{Mode: mode, Functions: functions}, Options: opts},
+				{To: policy.To{Label: label, Functions: functions}, Options: opts},
 			},
 		},
 	}
@@ -28,9 +28,9 @@ func gitPolicy(action policy.Action, mode policy.Mode, functions []string, confi
 
 func samplePolicies() []policy.Policy {
 	return []policy.Policy{
-		gitPolicy(policy.ActionAllow, policy.ModeRead, []string{"log", "status"}, false, "git/read-allow.yaml"),
-		gitPolicy(policy.ActionAllow, policy.ModeWrite, []string{"add", "commit", "push"}, true, "git/write-confirm.yaml"),
-		gitPolicy(policy.ActionDeny, policy.ModeDestructive, []string{"reset", "clean"}, false, "git/destructive-deny.yaml"),
+		gitPolicy(policy.ActionAllow, "read", []string{"log", "status"}, false, "git/read-allow.yaml"),
+		gitPolicy(policy.ActionAllow, "write", []string{"add", "commit", "push"}, true, "git/write-confirm.yaml"),
+		gitPolicy(policy.ActionDeny, "destructive", []string{"reset", "clean"}, false, "git/destructive-deny.yaml"),
 		{
 			APIVersion: policy.APIVersion,
 			Kind:       policy.Kind,
@@ -38,7 +38,7 @@ func samplePolicies() []policy.Policy {
 			Spec: policy.Spec{
 				Target: policy.Target{Module: policy.ModulePermission, Tool: "rm"},
 				Action: policy.ActionDeny,
-				Rules:  []policy.Rule{{To: policy.To{Mode: policy.ModeDestructive}}},
+				Rules:  []policy.Rule{{To: policy.To{Label: "destructive"}}},
 			},
 		},
 	}
@@ -76,8 +76,8 @@ func TestEvaluateCommand_ConfirmModifierOnlyAppliesToAllow(t *testing.T) {
 	// among matches), the confirm modifier from either one should win for
 	// the whole group -- confirm is "stricter" than a plain allow.
 	policies := []policy.Policy{
-		gitPolicy(policy.ActionAllow, policy.ModeWrite, []string{"commit"}, false, "git/write-allow.yaml"),
-		gitPolicy(policy.ActionAllow, policy.ModeWrite, []string{"commit"}, true, "git/write-confirm.yaml"),
+		gitPolicy(policy.ActionAllow, "write", []string{"commit"}, false, "git/write-allow.yaml"),
+		gitPolicy(policy.ActionAllow, "write", []string{"commit"}, true, "git/write-confirm.yaml"),
 	}
 	e := NewEvaluator(policies)
 
@@ -98,7 +98,7 @@ func TestEvaluateCommand_MessageCmdPlaceholder(t *testing.T) {
 				Action: policy.ActionAllow,
 				Rules: []policy.Rule{
 					{
-						To:      policy.To{Mode: policy.ModeWrite, Functions: []string{"add"}},
+						To:      policy.To{Label: "write", Functions: []string{"add"}},
 						Options: &policy.Options{Confirm: &policy.Confirm{Enabled: true}},
 						Message: &policy.Message{
 							Reason: "{cmd} is a write operation.",
@@ -134,7 +134,7 @@ func TestEvaluateCommand_ConfirmMessageOverridesRuleMessage(t *testing.T) {
 				Action: policy.ActionAllow,
 				Rules: []policy.Rule{
 					{
-						To: policy.To{Mode: policy.ModeNetwork},
+						To: policy.To{Label: "network"},
 						Options: &policy.Options{
 							Confirm: &policy.Confirm{
 								Enabled: true,
@@ -165,6 +165,24 @@ func TestEvaluateCommand_ConfirmMessageOverridesRuleMessage(t *testing.T) {
 	}
 }
 
+func TestEvaluateCommand_LabelIsPurelyDescriptive(t *testing.T) {
+	// To.Label plays no part in matching -- it's carried into Decision
+	// (and from there into the check log) purely for readability.
+	e := NewEvaluator(samplePolicies())
+
+	got := e.EvaluateCommand(shellcmd.SimpleCommand{Tool: "git", Args: []string{"push"}})
+	if got.Label != "write" {
+		t.Fatalf("Label = %q, want %q", got.Label, "write")
+	}
+
+	// No matching rule at all -> no label, but the command still
+	// evaluates to the default action rather than failing.
+	got = e.EvaluateCommand(shellcmd.SimpleCommand{Tool: "curl", Args: []string{"http://x"}})
+	if got.Label != "" {
+		t.Fatalf("Label = %q, want empty for an unmatched command", got.Label)
+	}
+}
+
 func TestEvaluateCommand_DefaultReasonMentionsCommand(t *testing.T) {
 	e := NewEvaluator(samplePolicies())
 	got := e.EvaluateCommand(shellcmd.SimpleCommand{Tool: "curl", Args: []string{"http://x"}})
@@ -185,7 +203,7 @@ func pushForceDenyPolicy() policy.Policy {
 			Action: policy.ActionDeny,
 			Rules: []policy.Rule{
 				{To: policy.To{
-					Mode:      policy.ModeDestructive,
+					Label:     "destructive",
 					Functions: []string{"push"},
 					Args:      &policy.ArgsMatch{AnyOf: []string{"-f", "--force"}},
 				}},
@@ -265,7 +283,7 @@ func TestEvaluateCommand_CustomCheckOverridesAction(t *testing.T) {
 				Action: policy.ActionAllow,
 				Rules: []policy.Rule{
 					{
-						To: policy.To{Mode: policy.ModeWrite, Functions: []string{"push"}},
+						To: policy.To{Label: "write", Functions: []string{"push"}},
 						Options: &policy.Options{
 							CustomCheck: &policy.CustomCheck{
 								Command: "exit 1",
@@ -302,7 +320,7 @@ func TestEvaluateCommand_CustomCheckWhenConfirmOverridesToConfirm(t *testing.T) 
 				Action: policy.ActionDeny,
 				Rules: []policy.Rule{
 					{
-						To: policy.To{Mode: policy.ModeWrite, Functions: []string{"push"}},
+						To: policy.To{Label: "write", Functions: []string{"push"}},
 						Options: &policy.Options{
 							CustomCheck: &policy.CustomCheck{
 								Command: "exit 0",
@@ -340,7 +358,7 @@ func TestEvaluateCommand_CustomCheckOverrideBeatsConfirm(t *testing.T) {
 				Action: policy.ActionAllow,
 				Rules: []policy.Rule{
 					{
-						To: policy.To{Mode: policy.ModeWrite, Functions: []string{"push"}},
+						To: policy.To{Label: "write", Functions: []string{"push"}},
 						Options: &policy.Options{
 							Confirm: &policy.Confirm{Enabled: true},
 							CustomCheck: &policy.CustomCheck{
@@ -374,7 +392,7 @@ func TestEvaluateCommand_CustomCheckNoWhenMatchKeepsEffectiveBaseAction(t *testi
 				Action: policy.ActionAllow,
 				Rules: []policy.Rule{
 					{
-						To: policy.To{Mode: policy.ModeWrite, Functions: []string{"push"}},
+						To: policy.To{Label: "write", Functions: []string{"push"}},
 						Options: &policy.Options{
 							Confirm: &policy.Confirm{Enabled: true},
 							CustomCheck: &policy.CustomCheck{

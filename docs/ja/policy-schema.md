@@ -42,7 +42,7 @@ spec:
 
 ```yaml
 - to:
-    mode: read | write | destructive | network   # 必須
+    label: <string>                                # 任意、自由記述
     functions: [sub, commands]                    # 任意
     args:
       anyOf: ["-f", "--force"]                     # 任意
@@ -71,7 +71,7 @@ spec:
 
 | フィールド | 型 | 必須 | 補足 |
 |---|---|---|---|
-| `to.mode` | string（固定語彙） | 必須 | `read`/`write`/`destructive`/`network` のいずれか。あくまで分類目的で、どのruleが勝つかには影響しない。 |
+| `to.label` | string | 任意 | 自由記述の説明用テキスト（例: `read`、`write`、`destructive`、`network`、その他何でも）。**マッチングには一切関与しない** —— マッチングは `functions`/`args` だけで決まる。チェックログ（`CommandLog.label`）に記録され、可読性のために使われる。 |
 | `to.functions` | string配列 | 任意 | このruleが対象とするサブコマンド名（例: `[add, commit, push]`）。**省略するとcatch-all**になり、サブコマンドの概念がないフラットなコマンド（`rm`/`curl`等）のツール全体に適用される。 |
 | `to.args` | オブジェクト | 任意 | 下記参照。 |
 | `to.args.anyOf` | string配列 | `args`を設定する場合は必須 | 空でない文字列を最低1件。argvにこのトークンのいずれかが**リテラル一致**で含まれる場合にのみマッチする（正規表現/glob不可、値を取るオプションの引数部分のパースも行わない）。 |
@@ -200,14 +200,13 @@ Istio の `action: CUSTOM` に相当する仕組み。判定の一部を外部�
 | エラー | `spec.target.tool` が空 |
 | エラー | `spec.action` が `ALLOW`/`DENY` のいずれでもない |
 | エラー | `spec.rules` が空 |
-| エラー | `rules[].to.mode` が `read`/`write`/`destructive`/`network` のいずれでもない |
 | エラー | `rules[].to.args.anyOf` が設定されているが空、または空文字列を含む |
 | エラー | `rules[].options.customCheck` に `path` と `command` のどちらも無い、または両方ある |
 | エラー | `rules[].options.customCheck.when[].key` が `"exit"` と異なる |
 | エラー | `rules[].options.confirm.enabled: true` と `spec.action: DENY` の組み合わせ |
 | エラー | `rules[].options.customCheck.when[].confirm: true` と、そのエントリの `action: DENY` の組み合わせ |
 | 警告 | 同一リソース内に2つ目のcatch-all（`functions`省略）ruleがある —— 最初のものが既にすべてにマッチするため到達不可能 |
-| 警告 | 2つ以上のリソースが同一の `{tool, mode, functions, args}` マッチ条件を宣言している —— エラーではない（strictest-winsが確定的に解決する）が、ほとんどの場合意図しないもの |
+| 警告 | 2つ以上のリソースが同一の `{tool, functions, args}` マッチ条件を宣言している —— エラーではない（strictest-winsが確定的に解決する）が、ほとんどの場合意図しないもの。`to.label` はこのチェックから意図的に除外されている（マッチングに関与しないため）—— `label` だけが異なる2つのruleも重複として検出される。 |
 
 ## 例
 
@@ -226,7 +225,7 @@ spec:
   action: ALLOW
   rules:
     - to:
-        mode: network
+        label: network
       options:
         confirm:
           enabled: true
@@ -250,7 +249,7 @@ spec:
   action: DENY
   rules:
     - to:
-        mode: destructive
+        label: destructive
         functions: [push]
         args:
           anyOf: ["-f", "--force"]
@@ -278,7 +277,7 @@ spec:
   action: DENY             # 安全側のデフォルト: スクリプトが安全と示さない限り拒否
   rules:
     - to:
-        mode: write
+        label: write
         functions: [push]
       options:
         customCheck:
@@ -305,8 +304,8 @@ spec:
 spec:
   action: ALLOW
   rules:
-    - to: { mode: read, functions: [log, status, diff] }
-    - to: { mode: write, functions: [add, commit, push] }
+    - to: { label: read, functions: [log, status, diff] }
+    - to: { label: write, functions: [add, commit, push] }
       options:
         confirm: { enabled: true }
 ```
@@ -316,7 +315,7 @@ spec:
 spec:
   action: DENY
   rules:
-    - to: { mode: destructive, functions: [reset, clean, rebase] }
+    - to: { label: destructive, functions: [reset, clean, rebase] }
       message:
         reason: "{cmd} is a destructive operation and is denied."
         next: "Suggest an alternative approach to the user."

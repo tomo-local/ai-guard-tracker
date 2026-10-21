@@ -20,21 +20,6 @@ const (
 	ActionConfirm Action = "CONFIRM"
 )
 
-// Mode is the fixed vocabulary used to categorize an operation for reporting
-// and matching purposes.
-type Mode string
-
-const (
-	ModeRead        Mode = "read"
-	ModeWrite       Mode = "write"
-	ModeDestructive Mode = "destructive"
-	ModeNetwork     Mode = "network"
-)
-
-// ValidModes lists every Mode value guard lint accepts. Keep in sync with
-// the `oneof=...` validate tag on To.Mode below.
-var ValidModes = []Mode{ModeRead, ModeWrite, ModeDestructive, ModeNetwork}
-
 // ValidActions lists every Action value that may appear directly in a
 // policy file (spec.action / when.action). Keep in sync with the
 // `oneof=...` validate tags on Spec.Action and When.Action below.
@@ -99,7 +84,12 @@ type Rule struct {
 // flat commands such as rm that have no subcommand concept). Args is also
 // optional: when absent, the rule applies regardless of flags.
 type To struct {
-	Mode      Mode       `yaml:"mode" validate:"oneof=read write destructive network"`
+	// Label is a free-text, optional description of what this rule is
+	// about (e.g. "write", "destructive", "network"). It plays no part in
+	// matching -- matching is driven entirely by Functions/Args -- it
+	// only exists to document intent and is carried into the check log
+	// (sidecar.CommandLog) for readability.
+	Label     string     `yaml:"label,omitempty"`
 	Functions []string   `yaml:"functions,omitempty"`
 	Args      *ArgsMatch `yaml:"args,omitempty"`
 }

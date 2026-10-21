@@ -191,10 +191,10 @@ spec:
   action: ALLOW           # ALLOW | DENY のいずれか1つ。このリソース内の全ruleに共通
   rules:
     - to:
-        mode: read                                     # read | write | destructive | network
+        label: read                                    # 任意、自由記述。マッチングには影響しない
         functions: [log, status, diff, show, branch, fetch]
     - to:
-        mode: write
+        label: write
         functions: [add, commit, push, pull, merge]    # 省略するとツール全体へのcatch-all
       options:
         confirm:
@@ -226,6 +226,11 @@ spec:
   YAML上の `action` としては書けない）。
 - `functions` を省略すると、そのツールの全呼び出しに対する catch-all ルールになる
   （`rm`/`curl` のようにサブコマンドを持たないフラットなコマンド向け）。
+- `to.label` は読み手・レビュアー向けの自由記述の任意フィールド（例:
+  `write`、`destructive`、`network`、あるいは好きな文字列）。**マッチングには
+  一切関与しない** —— マッチングは `functions`/`args` だけで決まる。
+  チェックログ（`.guard/logs/check.jsonl` の `commands[].label`）に記録され、
+  可読性のために使われる。
 
 ### フラグ単位のマッチ（`to.args.anyOf`）
 
@@ -246,7 +251,7 @@ spec:
   action: DENY
   rules:
     - to:
-        mode: destructive
+        label: destructive
         functions: [push]
         args:
           anyOf: ["-f", "--force"]
@@ -266,7 +271,7 @@ spec:
   action: DENY
   rules:
     - to:
-        mode: write
+        label: write
         functions: [push]
       options:
         customCheck:
@@ -297,7 +302,8 @@ spec:
 - 対象スコープは **Bash コマンドのみ**。
 - サブコマンド（`functions`）の判定は「先頭の `-` で始まらない最初の引数」というヒューリスティック。
   `git -C <path> push` のように値を取るフラグの直後の引数を誤って function とみなす場合がある。
-- マッチ条件の粒度は `mode` × `functions` × `args.anyOf` まで。`args.anyOf` はトークンの
+- マッチ条件の粒度は `functions` × `args.anyOf` まで（`to.label` は自由記述の
+  説明用フィールドであり、マッチングには関与しない）。`args.anyOf` はトークンの
   完全一致のみ（正規表現/glob不可、値を取るオプションの引数部分まではパースしない）。
   それ以上の複雑な判定が必要な場合は `options.customCheck` でスクリプト側に委譲する。
 - コマンド置換（`$(...)`）の中の呼び出しも AST walk で評価対象になるが、リテラルでない

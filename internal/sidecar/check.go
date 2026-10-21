@@ -28,6 +28,9 @@ type CheckLogEntry struct {
 type CommandLog struct {
 	Tool   string `json:"tool"`
 	Action string `json:"action"`
+	// Label carries the matched rule's policy.To.Label (free-text,
+	// purely descriptive -- see its doc comment), when set.
+	Label string `json:"label,omitempty"`
 }
 
 type CustomCheckLog struct {

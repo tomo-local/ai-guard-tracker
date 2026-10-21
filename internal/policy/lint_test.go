@@ -16,7 +16,7 @@ func validPolicy() Policy {
 			Action: ActionAllow,
 			Rules: []Rule{
 				{
-					To:      To{Mode: ModeWrite, Functions: []string{"commit", "push"}},
+					To:      To{Label: "write", Functions: []string{"commit", "push"}},
 					Options: &Options{Confirm: &Confirm{Enabled: true}},
 					Message: &Message{
 						Reason: "git への書き込み操作です。",
@@ -48,7 +48,6 @@ func TestLint_FieldErrors(t *testing.T) {
 		{"target.tool", func(p *Policy) { p.Spec.Target.Tool = "" }, "spec.target.tool"},
 		{"action", func(p *Policy) { p.Spec.Action = "MAYBE" }, "spec.action"},
 		{"rules empty", func(p *Policy) { p.Spec.Rules = nil }, "spec.rules"},
-		{"rule mode", func(p *Policy) { p.Spec.Rules[0].To.Mode = "weird" }, "mode"},
 	}
 
 	for _, tc := range cases {
@@ -90,7 +89,7 @@ func TestLint_ArgsDifferenceAvoidsFalseCrossPolicyDuplicate(t *testing.T) {
 
 	p2 := validPolicy()
 	p2.SourcePath = "b.yaml"
-	// Same tool/mode/functions as p1 but no args condition -- these should
+	// Same tool/functions as p1 but no args condition -- these should
 	// NOT be flagged as a duplicate match condition, since args narrows p1
 	// to a strict subset of what p2 matches.
 	p2.Spec.Rules[0].To.Args = nil
@@ -98,6 +97,24 @@ func TestLint_ArgsDifferenceAvoidsFalseCrossPolicyDuplicate(t *testing.T) {
 	issues := Lint([]Policy{p1, p2})
 	if hasWarningContaining(issues, "duplicate match condition") {
 		t.Fatalf("did not expect a duplicate warning when args differ, got %v", issues)
+	}
+}
+
+func TestLint_LabelDifferenceDoesNotAvoidCrossPolicyDuplicate(t *testing.T) {
+	// Unlike Args, Label plays no part in matching (it's purely
+	// descriptive -- see To.Label's doc comment), so two rules differing
+	// only in Label are still a genuine duplicate match condition.
+	p1 := validPolicy()
+	p1.SourcePath = "a.yaml"
+	p1.Spec.Rules[0].To.Label = "one label"
+
+	p2 := validPolicy()
+	p2.SourcePath = "b.yaml"
+	p2.Spec.Rules[0].To.Label = "a completely different label"
+
+	issues := Lint([]Policy{p1, p2})
+	if !hasWarningContaining(issues, "duplicate match condition") {
+		t.Fatalf("expected a duplicate match condition warning despite differing labels, got %v", issues)
 	}
 }
 
@@ -134,8 +151,8 @@ func TestLint_CustomCheckWhenKey(t *testing.T) {
 func TestLint_DuplicateCatchAllWarning(t *testing.T) {
 	p := validPolicy()
 	p.Spec.Rules = []Rule{
-		{To: To{Mode: ModeWrite}},
-		{To: To{Mode: ModeDestructive}},
+		{To: To{Label: "write"}},
+		{To: To{Label: "destructive"}},
 	}
 
 	issues := Lint([]Policy{p})

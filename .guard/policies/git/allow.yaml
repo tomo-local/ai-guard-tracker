@@ -9,10 +9,10 @@ spec:
   action: ALLOW
   rules:
     - to:
-        mode: read
+        label: read
         functions: [log, status, diff, show, branch, fetch]
     - to:
-        mode: write
+        label: write
         functions: [add, commit, push, pull, merge]
       options:
         confirm:

@@ -33,7 +33,7 @@ spec:
   action: ALLOW | DENY    # exactly one, applies to every rule in this file
   rules:
     - to:
-        mode: read | write | destructive | network   # fixed vocabulary, categorization only
+        label: <string>                # optional, free text -- purely descriptive, NOT used for matching
         functions: [sub, commands]    # omit entirely for flat commands (rm, curl, ...) -> catch-all
         args:
           anyOf: ["-f", "--force"]    # optional: literal argv token match, no regex/globs
@@ -79,6 +79,11 @@ Key rules to follow:
   plain ALLOW and overrides the rule's own `confirm.enabled: true`.
   `confirm` only applies when `customCheck` is absent, didn't run, or had
   no matching `when` entry.
+- **`to.label` is free text and purely descriptive -- it plays no part in
+  matching.** Only `functions`/`args` affect which rule a command
+  matches. Use `label` as a short note for readers/auditors (e.g.
+  `write`, `destructive`, `network`), or omit it; never rely on it to
+  distinguish rules.
 - **One resource = one tool + one action.** If a resource for that
   tool+action already exists, add a new entry to its `rules:` list instead
   of creating a duplicate file. Only create a new file when the user needs a

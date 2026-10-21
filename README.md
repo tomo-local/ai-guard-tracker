@@ -214,10 +214,10 @@ spec:
   action: ALLOW           # exactly one of ALLOW | DENY, shared by every rule in this resource
   rules:
     - to:
-        mode: read                                     # read | write | destructive | network
+        label: read                                    # optional, free text -- purely descriptive, doesn't affect matching
         functions: [log, status, diff, show, branch, fetch]
     - to:
-        mode: write
+        label: write
         functions: [add, commit, push, pull, merge]    # omit for a catch-all over the whole tool
       options:
         confirm:
@@ -255,6 +255,12 @@ when both are set, `options.confirm.message` wins.
   fallback, not something you can write as a YAML `action`.
 - Omitting `functions` makes the rule a catch-all for every invocation of
   that tool (for flat commands like `rm`/`curl` that have no subcommand).
+- `to.label` is a free-text, optional note for whoever is reading or
+  auditing the policy (e.g. `write`, `destructive`, `network`, or
+  anything else you find useful) -- it plays **no part in matching**,
+  which is driven entirely by `functions`/`args`. It's carried into the
+  check log (`.guard/logs/check.jsonl`'s `commands[].label`) for
+  readability.
 
 ### Matching on flags (`to.args.anyOf`)
 
@@ -278,7 +284,7 @@ spec:
   action: DENY
   rules:
     - to:
-        mode: destructive
+        label: destructive
         functions: [push]
         args:
           anyOf: ["-f", "--force"]
@@ -299,7 +305,7 @@ spec:
   action: DENY
   rules:
     - to:
-        mode: write
+        label: write
         functions: [push]
       options:
         customCheck:
@@ -331,9 +337,10 @@ run, or had no matching `when` entry.
 - Subcommand (`functions`) detection is a heuristic: "the first argument
   that doesn't start with `-`". `git -C <path> push` mistakes `<path>`
   for the function, since it directly follows a flag that takes a value.
-- Match granularity goes up to `mode` × `functions` × `args.anyOf`.
-  `args.anyOf` is literal-token matching only (no regex/globs, and it
-  doesn't parse flag-value pairs). Anything more complex belongs in
+- Match granularity goes up to `functions` × `args.anyOf` (`to.label` is
+  descriptive only and plays no part in matching). `args.anyOf` is
+  literal-token matching only (no regex/globs, and it doesn't parse
+  flag-value pairs). Anything more complex belongs in
   `options.customCheck`.
 - Calls inside command substitution (`$(...)`) are walked and evaluated
   too, but non-literal arguments (variable expansions, etc.) are rendered

@@ -9,7 +9,7 @@ spec:
   action: DENY
   rules:
     - to:
-        mode: destructive
+        label: destructive
       message:
         reason: "{cmd} is denied."
         next: "Ask the user whether this deletion is really needed, and have them run it themselves."

@@ -9,7 +9,7 @@ spec:
   action: DENY
   rules:
     - to:
-        mode: destructive
+        label: destructive
         functions: [push]
         args:
           anyOf: ["-f", "--force"]
