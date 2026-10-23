@@ -25,7 +25,7 @@ sha_darwin_arm64="$(shasum -a 256 "$WORKDIR/$APP-darwin-arm64" | cut -d' ' -f1)"
 sha_linux_amd64="$(shasum -a 256 "$WORKDIR/$APP-linux-amd64" | cut -d' ' -f1)"
 
 cat > Formula/$APP.rb <<EOF
-class App < Formula
+class Guard < Formula
   desc "ai-guard-tracker (command: guard) is a CLI tool that integrates with Claude Code's hook system to allow, deny, or require human confirmation for Bash commands run by AI coding agents based on repo-defined policy manifests."
   homepage "https://github.com/${REPO}"
   version "${VERSION}"

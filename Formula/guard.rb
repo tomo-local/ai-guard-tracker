@@ -1,4 +1,4 @@
-class HabitTracker < Formula
+class Guard < Formula
   desc "ai-guard-tracker (command: guard) is a CLI tool that integrates with Claude Code's hook system to allow, deny, or require human confirmation for Bash commands run by AI coding agents based on repo-defined policy manifests."
   homepage "https://github.com/tomo-local/guard"
   version "0.0.1"
