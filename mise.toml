@@ -1,0 +1,9 @@
+[tools]
+go = "1.26.4"
+
+[tasks.build]
+description = "go build"
+run = "go build -o bin/habit"
+
+[tasks.test]
+run = "go test ./..."
